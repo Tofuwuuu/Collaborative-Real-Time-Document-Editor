@@ -1,0 +1,4 @@
+What you can run now
+Redis: docker compose up -d
+Backend (FastAPI + WebSockets + Redis pub/sub + Streams + snapshots): see updated steps in README.md
+Frontend (React + Yjs CRDT + TipTap + cursors/presence + history UI): cd frontend && npm install && npm run dev
