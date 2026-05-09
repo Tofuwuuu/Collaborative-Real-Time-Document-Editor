@@ -13,7 +13,7 @@ type SnapshotRow = {
 
 function formatTs(ts?: string) {
   const n = ts ? Number(ts) : NaN
-  if (!Number.isFinite(n)) return '—'
+  if (!Number.isFinite(n)) return 'No date'
   return new Date(n).toLocaleString()
 }
 
@@ -37,10 +37,15 @@ function SnapshotPreview(props: { snapshotB64: string }) {
       StarterKit.configure({ history: false }),
       Collaboration.configure({ document: ydoc }),
     ],
+    editorProps: {
+      attributes: {
+        class: 'editor-content snapshot-content',
+      },
+    },
   })
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, minHeight: 240 }}>
+    <div className="snapshot-preview">
       <EditorContent editor={editor} />
     </div>
   )
@@ -49,6 +54,7 @@ function SnapshotPreview(props: { snapshotB64: string }) {
 export function HistoryPanel(props: { docId: string; refreshKey: number }) {
   const [rows, setRows] = useState<SnapshotRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState<SnapshotRow | null>(null)
   const [openData, setOpenData] = useState<string | null>(null)
 
@@ -56,10 +62,17 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
     let cancelled = false
     async function run() {
       setLoading(true)
+      setError(null)
       try {
         const res = await fetch(`http://localhost:8000/api/docs/${encodeURIComponent(props.docId)}/history`)
+        if (!res.ok) throw new Error('History unavailable')
         const json = (await res.json()) as SnapshotRow[]
         if (!cancelled) setRows(Array.isArray(json) ? json : [])
+      } catch {
+        if (!cancelled) {
+          setRows([])
+          setError('History is unavailable while the backend is offline.')
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -75,12 +88,17 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
     async function run() {
       if (!open) return
       setOpenData(null)
-      const res = await fetch(
-        `http://localhost:8000/api/docs/${encodeURIComponent(props.docId)}/snapshot/${encodeURIComponent(open.id)}`,
-      )
-      const json = (await res.json()) as SnapshotRow
-      if (cancelled) return
-      setOpenData(typeof json?.data === 'string' ? json.data : null)
+      try {
+        const res = await fetch(
+          `http://localhost:8000/api/docs/${encodeURIComponent(props.docId)}/snapshot/${encodeURIComponent(open.id)}`,
+        )
+        if (!res.ok) return
+        const json = (await res.json()) as SnapshotRow
+        if (cancelled) return
+        setOpenData(typeof json?.data === 'string' ? json.data : null)
+      } catch {
+        if (!cancelled) setOpenData(null)
+      }
     }
     run()
     return () => {
@@ -89,31 +107,29 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
   }, [open, props.docId])
 
   return (
-    <div style={{ width: 320 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h3 style={{ margin: '0 0 6px 0' }}>History</h3>
-        <div style={{ fontSize: 12, color: '#6b7280' }}>{loading ? 'Loading…' : `${rows.length} snapshots`}</div>
+    <aside className="history-panel">
+      <div className="section-heading">
+        <h2>History</h2>
+        <span>{loading ? 'Loading' : rows.length}</span>
       </div>
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 8 }}>
-        {rows.length === 0 ? (
-          <div style={{ color: '#6b7280', fontSize: 13, padding: 8 }}>No snapshots yet. Click “Save snapshot”.</div>
+
+      <div className="history-list">
+        {error ? (
+          <div className="empty-history">
+            <strong>History offline</strong>
+            <span>{error}</span>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="empty-history">
+            <strong>No snapshots yet</strong>
+            <span>Save one when the document reaches a useful point.</span>
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {rows.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setOpen(r)}
-                style={{
-                  textAlign: 'left',
-                  border: '1px solid #f3f4f6',
-                  background: 'white',
-                  borderRadius: 10,
-                  padding: 10,
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{formatTs(r.ts)}</div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>id: {r.id}</div>
+          <div className="snapshot-list">
+            {rows.map((row) => (
+              <button key={row.id} type="button" className="snapshot-row" onClick={() => setOpen(row)}>
+                <strong>{formatTs(row.ts)}</strong>
+                <span>{row.id}</span>
               </button>
             ))}
           </div>
@@ -121,33 +137,14 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
       </div>
 
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => setOpen(null)}
-        >
-          <div
-            style={{ background: 'white', borderRadius: 12, padding: 16, width: 900, maxWidth: '95vw' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+        <div role="dialog" aria-modal="true" className="modal-backdrop" onClick={() => setOpen(null)}>
+          <div className="snapshot-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
               <div>
-                <div style={{ fontWeight: 700 }}>Snapshot preview</div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>{formatTs(open.ts)}</div>
+                <strong>Snapshot preview</strong>
+                <span>{formatTs(open.ts)}</span>
               </div>
-              <button
-                onClick={() => setOpen(null)}
-                style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #e5e7eb', background: 'white' }}
-              >
+              <button type="button" className="ghost-button" onClick={() => setOpen(null)}>
                 Close
               </button>
             </div>
@@ -155,12 +152,11 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
             {openData ? (
               <SnapshotPreview snapshotB64={openData} />
             ) : (
-              <div style={{ color: '#6b7280', fontSize: 13 }}>Loading snapshot…</div>
+              <div className="loading-snapshot">Loading snapshot...</div>
             )}
           </div>
         </div>
       )}
-    </div>
+    </aside>
   )
 }
-

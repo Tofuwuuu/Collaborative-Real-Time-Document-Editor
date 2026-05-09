@@ -13,6 +13,14 @@ type WsMessage =
   | { type: 'awareness'; clientId?: number; data: string }
   | { type: 'snapshot_saved' }
 
+type OutboundWsMessage =
+  | { type: 'hello'; clientId: number; user: UserInfo }
+  | { type: 'snapshot'; data: string }
+  | { type: 'y_update'; clientId: number; data: string }
+  | { type: 'awareness'; clientId: number; data: string }
+
+export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline'
+
 function toBase64(bytes: Uint8Array): string {
   let binary = ''
   const chunkSize = 0x8000
@@ -40,8 +48,12 @@ export class WsYjsProvider {
   private connected = false
   private applyingRemote = false
   private snapshotSavedHandlers = new Set<() => void>()
+  private statusHandlers = new Set<(status: ConnectionStatus) => void>()
   private reconnectAttempt = 0
   private reconnectTimer: number | null = null
+  private status: ConnectionStatus = 'offline'
+  private closedByUser = false
+  private subscribed = false
 
   constructor(opts: { url: string; docId: string; doc: Y.Doc; awareness: Awareness; user: UserInfo }) {
     this.url = opts.url
@@ -54,10 +66,16 @@ export class WsYjsProvider {
   connect() {
     if (this.ws) return
 
-    this.ws = new WebSocket(this.url)
-    this.ws.onopen = () => {
+    this.closedByUser = false
+    this.setStatus(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting')
+    const socket = new WebSocket(this.url)
+    this.ws = socket
+
+    socket.onopen = () => {
+      if (this.ws !== socket) return
       this.connected = true
       this.reconnectAttempt = 0
+      this.setStatus('connected')
       this.send({
         type: 'hello',
         clientId: this.doc.clientID,
@@ -67,32 +85,52 @@ export class WsYjsProvider {
       this.awareness.setLocalStateField('user', this.user)
     }
 
-    this.ws.onmessage = (ev) => {
+    socket.onmessage = (ev) => {
+      if (this.ws !== socket) return
       const parsed = safeJsonParse<WsMessage>(ev.data)
       if (!parsed) return
       this.onMessage(parsed)
     }
 
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      if (this.ws !== socket && !this.closedByUser) return
       this.connected = false
-      this.ws = null
+      if (this.ws === socket) this.ws = null
+      if (this.closedByUser) {
+        this.setStatus('offline')
+        return
+      }
+      this.setStatus(this.reconnectTimer == null ? 'reconnecting' : this.status)
       this.scheduleReconnect()
     }
 
-    this.doc.on('update', this.onDocUpdate)
-    this.awareness.on('update', this.onAwarenessUpdate)
+    socket.onerror = () => {
+      if (this.ws !== socket) return
+      this.setStatus('reconnecting')
+    }
+
+    if (!this.subscribed) {
+      this.doc.on('update', this.onDocUpdate)
+      this.awareness.on('update', this.onAwarenessUpdate)
+      this.subscribed = true
+    }
   }
 
   disconnect() {
-    this.doc.off('update', this.onDocUpdate)
-    this.awareness.off('update', this.onAwarenessUpdate)
+    if (this.subscribed) {
+      this.doc.off('update', this.onDocUpdate)
+      this.awareness.off('update', this.onAwarenessUpdate)
+      this.subscribed = false
+    }
     if (this.reconnectTimer != null) {
       window.clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
+    this.closedByUser = true
     this.ws?.close()
     this.ws = null
     this.connected = false
+    this.setStatus('offline')
   }
 
   requestSnapshot() {
@@ -103,6 +141,16 @@ export class WsYjsProvider {
   onSnapshotSaved(handler: () => void) {
     this.snapshotSavedHandlers.add(handler)
     return () => this.snapshotSavedHandlers.delete(handler)
+  }
+
+  onStatusChange(handler: (status: ConnectionStatus) => void) {
+    this.statusHandlers.add(handler)
+    handler(this.status)
+    return () => this.statusHandlers.delete(handler)
+  }
+
+  getStatus() {
+    return this.status
   }
 
   private onMessage(msg: WsMessage) {
@@ -160,9 +208,15 @@ export class WsYjsProvider {
     this.send({ type: 'awareness', clientId: this.doc.clientID, data: toBase64(update) })
   }
 
-  private send(obj: any) {
+  private send(obj: OutboundWsMessage) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
     this.ws.send(JSON.stringify(obj))
+  }
+
+  private setStatus(status: ConnectionStatus) {
+    if (this.status === status) return
+    this.status = status
+    for (const handler of this.statusHandlers) handler(status)
   }
 
   private scheduleReconnect() {
@@ -177,11 +231,10 @@ export class WsYjsProvider {
   }
 }
 
-function safeJsonParse<T>(data: any): T | null {
+function safeJsonParse<T>(data: unknown): T | null {
   try {
-    return JSON.parse(data) as T
+    return JSON.parse(typeof data === 'string' ? data : String(data)) as T
   } catch {
     return null
   }
 }
-
