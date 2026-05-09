@@ -8,6 +8,7 @@ import { DocEditor } from './editor/DocEditor'
 import { HistoryPanel } from './history/HistoryPanel'
 import { WsYjsProvider } from './realtime/wsProvider'
 import type { ConnectionStatus } from './realtime/wsProvider'
+import { config } from './config'
 
 type UserInfo = { name: string; color: string }
 type RecentDoc = { id: string; openedAt: number }
@@ -154,8 +155,7 @@ function DocPage() {
   const awareness = useMemo(() => new Awareness(ydoc), [ydoc])
 
   const provider = useMemo(() => {
-    const wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const url = `${wsProto}://localhost:8000/ws/docs/${encodeURIComponent(docId)}`
+    const url = `${config.wsBaseUrl}/ws/docs/${encodeURIComponent(docId)}`
     return new WsYjsProvider({ url, docId, doc: ydoc, awareness, user })
   }, [docId, ydoc, awareness, user])
 

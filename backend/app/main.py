@@ -8,6 +8,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
+from .config import settings
 from .hub import DocHub
 from .history import get_snapshot, list_snapshots
 from .pubsub import run_pubsub_listener
@@ -39,7 +40,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,4 +71,3 @@ async def snapshot(doc_id: str, snapshot_id: str):
 async def ws_docs(doc_id: str, websocket: WebSocket):
     redis = app.state.redis
     await handle_ws(doc_id=doc_id, ws=websocket, hub=hub, redis=redis, instance_id=instance_id)
-

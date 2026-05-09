@@ -4,6 +4,8 @@ import Collaboration from '@tiptap/extension-collaboration'
 import { EditorContent, useEditor } from '@tiptap/react'
 import * as Y from 'yjs'
 
+import { config } from '../config'
+
 type SnapshotRow = {
   id: string
   ts?: string
@@ -64,7 +66,7 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(`http://localhost:8000/api/docs/${encodeURIComponent(props.docId)}/history`)
+        const res = await fetch(`${config.apiBaseUrl}/api/docs/${encodeURIComponent(props.docId)}/history`)
         if (!res.ok) throw new Error('History unavailable')
         const json = (await res.json()) as SnapshotRow[]
         if (!cancelled) setRows(Array.isArray(json) ? json : [])
@@ -90,7 +92,7 @@ export function HistoryPanel(props: { docId: string; refreshKey: number }) {
       setOpenData(null)
       try {
         const res = await fetch(
-          `http://localhost:8000/api/docs/${encodeURIComponent(props.docId)}/snapshot/${encodeURIComponent(open.id)}`,
+          `${config.apiBaseUrl}/api/docs/${encodeURIComponent(props.docId)}/snapshot/${encodeURIComponent(open.id)}`,
         )
         if (!res.ok) return
         const json = (await res.json()) as SnapshotRow
