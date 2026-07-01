@@ -123,13 +123,45 @@ REDIS_URL=redis://localhost:6379/0
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
+## Deployment (Live)
+
+| Service | URL |
+|---------|-----|
+| **Frontend (Vercel)** | https://frontend-sable-kappa-64.vercel.app |
+| **Backend (Render)** | https://crde-backend.onrender.com |
+| **Redis (Render)** | Internal — `crde-redis` key-value instance |
+
+The frontend is configured to call the Render backend via `VITE_API_BASE_URL` and `VITE_WS_BASE_URL`.
+
+### Render setup
+
+`render.yaml` at the repo root defines the backend + Redis blueprint. Services were provisioned as:
+
+- **crde-backend** — Python web service (`backend/`, free plan)
+- **crde-redis** — Key Value store for document persistence
+
+To redeploy the backend after pushing to `main`, Render auto-deploys on commit. Or trigger manually:
+
+```bash
+render deploys create srv-d92c43po3t8c73bb1c9g --confirm
+```
+
+### Vercel setup
+
+Deploy from `frontend/`:
+
+```bash
+cd frontend
+npx vercel deploy --prod
+```
+
+Required production env vars:
+
+```txt
+VITE_API_BASE_URL=https://crde-backend.onrender.com
+VITE_WS_BASE_URL=wss://crde-backend.onrender.com
+```
+
 ## Deployment Notes
 
-The frontend can be deployed to Vercel as a static Vite app. The backend should run on a host that supports persistent WebSocket connections, such as Render, Railway, Fly.io, or a VPS.
-
-For a production-style portfolio deployment:
-
-- Deploy `frontend/` to Vercel.
-- Deploy `backend/` to a persistent server host.
-- Use hosted Redis such as Upstash, Redis Cloud, or Railway Redis.
-- Set `VITE_API_BASE_URL`, `VITE_WS_BASE_URL`, `REDIS_URL`, and `CORS_ORIGINS` for the deployed URLs.
+The frontend is deployed to Vercel as a static Vite app. The backend runs on Render with managed Redis.
