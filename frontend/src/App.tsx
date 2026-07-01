@@ -75,12 +75,87 @@ function statusLabel(status: ConnectionStatus) {
   return 'Offline'
 }
 
+function ArrowIcon() {
+  return (
+    <svg className="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M3 8h10M9 4l4 4-4 4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CollaborationPreview() {
+  return (
+    <div className="collab-preview" aria-hidden="true">
+      <div className="collab-preview-glow" />
+      <div className="collab-preview-window">
+        <div className="collab-preview-chrome">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="collab-preview-toolbar">
+          <span className="collab-preview-chip" />
+          <span className="collab-preview-chip wide" />
+          <span className="collab-preview-chip" />
+        </div>
+        <div className="collab-preview-doc">
+          <div className="collab-preview-line long" />
+          <div className="collab-preview-line medium" />
+          <div className="collab-preview-line short" />
+          <div className="collab-preview-line medium faded" />
+          <div className="collab-cursor cursor-1">
+            <span className="collab-cursor-caret" style={{ backgroundColor: '#e11d48' }} />
+            <span className="collab-cursor-label" style={{ backgroundColor: '#e11d48' }}>
+              Alex
+            </span>
+          </div>
+          <div className="collab-cursor cursor-2">
+            <span className="collab-cursor-caret" style={{ backgroundColor: '#2563eb' }} />
+            <span className="collab-cursor-label" style={{ backgroundColor: '#2563eb' }}>
+              Sam
+            </span>
+          </div>
+          <div className="collab-cursor cursor-3">
+            <span className="collab-cursor-caret" style={{ backgroundColor: '#16a34a' }} />
+            <span className="collab-cursor-label" style={{ backgroundColor: '#16a34a' }}>
+              Jordan
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Home() {
   const nav = useNavigate()
   const [docId, setDocId] = useState('')
   const [recents, setRecents] = useState<RecentDoc[]>(() => getRecentDocs())
+  const [isOpening, setIsOpening] = useState(false)
+  const [isLive, setIsLive] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${config.apiBaseUrl}/api/health`)
+      .then((response) => {
+        if (!cancelled) setIsLive(response.ok)
+      })
+      .catch(() => {
+        if (!cancelled) setIsLive(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function openDoc(id: string) {
+    setIsOpening(true)
     const nextDocId = id.trim() || createDocId()
     rememberDoc(nextDocId)
     setRecents(getRecentDocs())
@@ -89,54 +164,98 @@ function Home() {
 
   return (
     <main className="home-shell">
-      <section className="home-panel">
-        <div className="brand-mark">Co</div>
-        <div className="home-copy">
-          <p className="eyebrow">Realtime workspace</p>
-          <h1>Collaborative Real-Time Document Editor</h1>
-          <p className="home-subtitle">Open a shared document and start writing with everyone in the room.</p>
-        </div>
+      <section className="home-card">
+        <header className="home-brand">
+          <div className="brand-mark">Co</div>
+          <span className="brand-wordmark">CoEdit</span>
+        </header>
 
-        <form
-          className="join-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            openDoc(docId)
-          }}
-        >
-          <label htmlFor="doc-id">Document ID</label>
-          <div className="join-row">
-            <input
-              id="doc-id"
-              value={docId}
-              onChange={(event) => setDocId(event.target.value)}
-              placeholder="team-notes"
-              autoComplete="off"
-            />
-            <button type="submit">Open</button>
+        <div className="home-grid">
+          <div className="home-left">
+            <p className="eyebrow home-eyebrow">Realtime workspace</p>
+            <h1 className="home-hero-title">Collaborative Editor</h1>
+            <p className="home-hero-label">Real-Time Document Workspace</p>
+            <p className="home-subtitle">
+              Open a shared document and start writing with <strong>everyone in the room</strong>.
+            </p>
+
+            <form
+              className="join-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                openDoc(docId)
+              }}
+            >
+              <label htmlFor="doc-id">Document ID</label>
+              <input
+                id="doc-id"
+                className="doc-input"
+                value={docId}
+                onChange={(event) => setDocId(event.target.value)}
+                placeholder="team-notes"
+                autoComplete="off"
+              />
+
+              {recents.length > 0 && (
+                <div className="recent-pills" aria-label="Recently opened documents">
+                  <span className="recent-pills-label">Recently opened</span>
+                  <div className="recent-pills-row">
+                    {recents.slice(0, 4).map((doc) => (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        className="recent-pill"
+                        onClick={() => openDoc(doc.id)}
+                      >
+                        {doc.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isLive !== null && (
+                <p className={`platform-status ${isLive ? 'is-live' : 'is-offline'}`}>
+                  <span className="platform-status-dot" />
+                  {isLive ? 'Platform live — ready to collaborate' : 'Backend offline — start the server to sync'}
+                </p>
+              )}
+
+              <button className="home-primary-btn" type="submit" disabled={isOpening}>
+                {isOpening ? (
+                  <>
+                    <span className="btn-spinner" aria-hidden="true" />
+                    Opening…
+                  </>
+                ) : (
+                  <>
+                    Open Document
+                    <ArrowIcon />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <button
+              className="home-secondary-btn"
+              type="button"
+              disabled={isOpening}
+              onClick={() => openDoc(createDocId())}
+            >
+              Start New Document
+            </button>
+
+            <ul className="feature-pills" aria-label="Features">
+              <li>Real-time sync</li>
+              <li>Multi-user cursors</li>
+              <li>Auto-save</li>
+            </ul>
           </div>
-        </form>
 
-        <button className="secondary-action" type="button" onClick={() => openDoc(createDocId())}>
-          Start a new document
-        </button>
-
-        {recents.length > 0 && (
-          <section className="recent-list" aria-label="Recent documents">
-            <div className="section-heading">
-              <h2>Recent documents</h2>
-              <span>{recents.length}</span>
-            </div>
-            <div className="recent-grid">
-              {recents.map((doc) => (
-                <button key={doc.id} type="button" className="recent-card" onClick={() => openDoc(doc.id)}>
-                  <span>{doc.id}</span>
-                  <small>{new Date(doc.openedAt).toLocaleDateString()}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+          <div className="home-right">
+            <CollaborationPreview />
+          </div>
+        </div>
       </section>
     </main>
   )

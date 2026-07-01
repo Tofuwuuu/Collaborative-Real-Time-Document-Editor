@@ -50,12 +50,32 @@ The frontend sends local Yjs updates over WebSockets. The backend broadcasts cha
 - Python 3.11+
 - Docker, for local Redis
 
-## Run Locally
+## Run with Docker
+
+Build and start Redis, backend, and frontend together:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```txt
+http://localhost:5173
+```
+
+Stop everything:
+
+```bash
+docker compose down
+```
+
+## Run Locally (without Docker)
 
 Start Redis:
 
 ```bash
-docker compose up -d
+docker compose up -d redis
 ```
 
 Start the backend:
