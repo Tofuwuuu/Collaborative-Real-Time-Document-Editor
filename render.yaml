@@ -21,4 +21,4 @@ services:
           name: crde-redis
           property: connectionString
       - key: CORS_ORIGINS
-        value: https://frontend-sable-kappa-64.vercel.app,http://localhost:5173,http://127.0.0.1:5173
+        value: https://collaborative-real-time-document-ed.vercel.app,http://localhost:5173,http://127.0.0.1:5173
