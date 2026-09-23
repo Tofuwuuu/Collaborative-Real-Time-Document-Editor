@@ -164,7 +164,19 @@ Add the resulting origin to `CORS_ORIGINS` on the Render service before relying 
 
 ## Screenshots
 
-No screenshots are checked in. Add a GIF or stills under `docs/screenshots/` when you have them.
+Still frames from the live frontend on 23 September 2026: [https://collaborative-real-time-document-ed.vercel.app](https://collaborative-real-time-document-ed.vercel.app). The document views are [`/docs/doc-85e8ea89`](https://collaborative-real-time-document-ed.vercel.app/docs/doc-85e8ea89). That document had no body text and no snapshots, so this capture typed one sentence in the editor and saved one snapshot. Docker Compose remains the demo path that does not depend on these hosts.
+
+### Home
+
+![CoEdit home page: document ID field, live platform status, and open or start actions](docs/screenshots/home.png)
+
+### Document editor
+
+![Document doc-85e8ea89 with the people list, formatting toolbar, typed sentence, and history column](docs/screenshots/document-editor.png)
+
+### History panel
+
+![History panel after saving a snapshot of doc-85e8ea89](docs/screenshots/history-panel.png)
 
 ## License
 
